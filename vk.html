@@ -1,0 +1,880 @@
+<!doctype html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <title>VK</title>
+        <link type="text/css" href="styles/jquery-ui-1.8.23.custom.css" rel="stylesheet" />
+  <script type="text/javascript" src="js/jquery-1.8.0.min.js"></script>
+	<script type="text/javascript" src="js/jquery-ui-1.8.23.custom.min.js"></script>
+        <script type="text/javascript" src="js/jquery.ba-hashchange.min.js.js"></script>
+        <script type="text/javascript">
+			function getUrlVars(){
+				var vars = [], hash;
+				var hashes = window.location.href.slice(window.location.href.indexOf('#') + 1).split('&');
+				for(var i = 0; i < hashes.length; i++){
+					hash = hashes[i].split('=');
+					vars.push(hash[0]);
+					vars[hash[0]] = hash[1];
+				}
+				return vars;
+			}
+                        $.fn.alignCenterScreen = function() {
+                            this.css("position", "absolute");
+                            // this.css("top", ($(window).height() - this.outerHeight()) / 2 + $(window).scrollTop() + "px");
+                            // this.css("left", ($(window).width() - this.outerWidth()) / 2 + $(window).scrollLeft() + "px");
+							this.css("top", ($(window).height() - this.outerHeight()) / 2 + "px");
+							this.css("left", ($(window).width() - this.outerWidth()) / 2 + "px");
+                            return this
+                        };
+			var userName = "username";
+			var userNickname = "usernickname";
+			var hashData;
+			var myself;
+                        var resData;
+			var loadCount = 30;
+			var lang = {};
+			lang.menu = {};
+			lang.menu.news = "Новости";
+			lang.menu.search = "Поиск";
+			lang.menu.audio = "Аудиозаписи";
+			lang.menu.friends = "Друзья";
+			lang.menu.messages = "Сообщения";
+			lang.menu.groups = "Группы";
+			lang.menu.settings = "Настройки";
+			lang.init = (function(){
+				$("#menu_news").html(lang.menu.news);
+				$("#menu_search").html(lang.menu.search);
+				$("#menu_audio").html(lang.menu.audio);
+				$("#menu_friends").html(lang.menu.friends);
+				$("#menu_messages").html(lang.menu.messages);
+				$("#menu_groups").html(lang.menu.groups);
+				$("#menu_settings").html(lang.menu.settings);
+			});
+			var ls = {};
+			ls.init = (function(){
+				if(localStorage["vk"] != "vk"){
+					localStorage["vk"] = "vk";
+					localStorage["uid"] = hashData["user_id"];
+					localStorage["access_token"] = hashData["access_token"];
+					localStorage["config-background"] = "white";
+					localStorage["config-loadCount"] = "30";
+				}else{
+					hashData["user_id"] = localStorage["uid"];
+					hashData["access_token"] = localStorage["access_token"];
+					$("#main_content").css('background', localStorage["config-background"]);
+					loadCount = parseInt(localStorage["config-loadCount"]);
+				}
+			});
+            function getApiResponse(method, myData){ // myData includes access_token
+				return $.ajax({
+					type: "GET",
+					dataType: "jsonp",
+					url: "https://api.vkontakte.ru/method/" + method,
+					data: myData,
+					success: function(data) {
+						// console.log(data);
+                                                resData = data; // resData = data.response;
+						return resData;
+					},
+					error: function (resp, status, err) {
+						console.log("Ошибка соединения с сервером: " + resp.statusText);
+					},
+                                        async: false
+				});
+			}
+            // getApiResponse result will storage at global variable resData
+			
+			function callApi(method, myData, callback){ // myData includes access_token
+				return $.ajax({
+					type: "GET",
+					dataType: "jsonp",
+					url: "https://api.vkontakte.ru/method/" + method,
+					data: myData,
+					success: function(data) {
+						return callback(data);
+					},
+					error: function (resp, status, err) {
+						console.log("Ошибка соединения с сервером: " + resp.statusText);
+					}
+				});
+			}
+			
+			function getUserName(id, access_token){
+				$.ajax({
+					type: "GET",
+					dataType: "jsonp",
+					url: "https://api.vkontakte.ru/method/users.get",
+					data: {uids: id, access_token: access_token, fields: "nickname,photo"},
+					success: function(data) {
+						// console.log(data);
+						userName = data.response[0].first_name + ' ' + data.response[0].last_name;
+						userNickname = data.response[0].nickname;
+						$("#username").html('<a style="cursor: pointer;" onclick="showUserProfile(myself);" title="' + userNickname +'"><img src="' + data.response[0].photo + '" style="width: 30px; border-radius: 3px; padding-bottom: 0px; margin-bottom: -7px; margin-right: 5px;" />' + userName + '</a>');
+						return;
+					},
+					error: function (resp, status, err) {
+						console.log("Ошибка соединения с сервером: " + resp.statusText);
+					}	
+				});
+				return userName;
+			}
+			function showUserProfile(id){
+				callApi("users.get",
+					{uids: id, access_token: hashData["access_token"], fields: "nickname, screen_name, sex, bdate, city, country, timezone, photo, photo_medium, photo_big, has_mobile, contacts, education, online, counters,relation,last_seen,status, can_write_private_message , can_see_all_posts, can_post, universities"},
+					function(data){
+						var resp = data.response[0];
+						var Name = resp.first_name + ' ' + resp.last_name;
+						var Photo = resp.photo_medium;
+                        var BigPhoto = resp.photo_big;
+						var Online = (resp.online == 1)?"Онлайн":"";
+						$("#main_content").html('<table><tr><td><a onClick=viewPhoto("' + BigPhoto + '");><img src="' + Photo + '" style="border-radius: 10px;"></a></td><td><h1>' + Name + '</h1></td><td><font color=gray>'+ resp.nickname + resp.screen_name + '<i>' + Online + '</i></font></td></tr><tr><td></td><td colspan="2"><font align=left>' + resp.status + '</font></td></tr></table><br />');
+						var table = {};
+						table["Пол"] = (resp.sex == 1)?"Женский":"Мужской";
+						table["Дата рождения"] = resp.bdate;
+						table["Город"] = resp.city;
+						table["Страна"] = resp.country;
+						table["Временная зона"] = resp.timezone;
+						table["Телефон"] = (resp.has_mobile == 1)?"Есть":"Нет";
+						table["Мобильный телефон"] = resp.mobile_phone;
+						table["Домашний телефон"] = resp.home_phone;
+						table["ВУЗ"] = resp.university_name + "(" + resp.university + ")<br />" + resp.faculty_name + "(" + resp.faculty + ")<br /><i>С " + resp.graduation + "</i>";
+						var tmp = "";
+						for(elem in table){
+							tmp += "<tr><td>" + elem + "</td><td>" + table[elem] + "</td></tr>";
+						}
+						$("#main_content").append('<table class="infoGrid" cellspacing="0">' + tmp + '</table><br />');
+						$("#main_content").append('<div class="wall"></div>');
+						callApi("wall.get", {owner_id: parseInt(id), count: 50, access_token: hashData['access_token']}, function(r){ makeWall(r); $(".creator").attr("src", resp.photo);});
+						return;
+					}
+				);
+			}
+			function addGroup(gid){
+				callApi("groups.join", {gid: gid, access_token: hashData["access_token"]}, function(res){
+					
+				});
+			}
+			function showGroup(gid){
+				callApi("groups.getById",
+					{gids: gid, access_token: hashData["access_token"], fields: "description"},
+					function(data){
+						var resp = data.response[0];
+						$("#main_content").html('<table><tr><td><a onClick=viewPhoto("' + resp.photo_big + '");><img src="' + resp.photo + '" style="border-radius: 10px;"></a></td><td><h1>' + resp.name + '</h1></td><td><font color=gray>' + resp.screen_name + '</font></td><td align="right"><div align="right" class="tag" onclick="showGroup(' + gid + ');"><center>Обновить</center></div></td></tr></table><br />');
+						var table = {};
+						table["Открытая группа"] = (resp.is_closed == 0)?true:false;
+						table["Закрытая группа"] = (resp.is_closed == 1)?true:false;
+						table["Частная группа"] = (resp.is_closed == 2)?true:false;
+						table["Вы модератор"] = (resp.is_admin == 1)?true:false;
+						table["Вы редактор"] = (resp.is_admin == 2)?true:false;
+						table["Вы администратор"] = (resp.is_admin == 3)?true:false;
+						table["Вы член сообщества"] = (resp.is_member == 1)?true:false;
+						var tmp = "";
+						for(elem in table){
+							if(table[elem] == true){
+								tmp += "<div class=" + '"tag"' + ">" + elem + "</div>";
+							}
+						}
+						var addGroupButton = "";
+						if(resp.is_closed + resp.is_member == 0){
+							addGroupButton = '<div class="tag" onclick="addGroup(' + gid + ');">Вступить в группу</div>';
+						}
+						$("#main_content").append(tmp + addGroupButton + '<br /><br />');
+						$("#main_content").append('<div class="infoText">' + resp.description + '</div><br /><br />');
+						$("#main_content").append('<div class="wall"></div>');
+						callApi("wall.get", {owner_id: -parseInt(gid), count: 50, access_token: hashData['access_token']}, function(r){ makeWall(r); $(".creator").attr("src", resp.photo);});
+						return;
+					}
+				);
+			}
+			function makeWall(res){
+				var data = res.response;
+				var tmp = "";
+				for(elem in data){
+					if(elem > 0){
+						block = data[elem];
+						var imgClass = "";
+						if(block.from_id == block.to_id){
+							imgClass = "creator";
+						}
+						tmp += '<div class="wall_block" id="wallBlock' + block.id + '" wallId="' + block.to_id + '" opened="false"><table><tr><td valign="top"><img id="wallBlockImg' + parseInt(elem) + '" class="' + imgClass + '" /></td><td>' + block.text + '</td></tr></table></div>';
+						if(block.text == ""){
+							var id = block.id;
+							var wallId = block.to_id;
+							callApi("wall.getById", {posts: wallId + "_" + id, access_token: hashData['access_token']}, function(postRes){
+								var resp = postRes.response[0];
+								var attachments = "";
+								if(typeof(resp.attachments) == "undefined"){
+									resp.attachments = [resp.attachment];
+								}
+								if(typeof(resp.attachment) != "undefined"){
+									for(attachment in resp.attachments){
+										if(resp.attachments[attachment].type == "link"){
+											attachments += '<br /><a href="' + resp.attachments[attachment].link.url + '" title="' + resp.attachments[attachment].link.description + '" target=_blank>' + resp.attachments[attachment].link.title + '</a>';
+										}
+										if(resp.attachments[attachment].type == "photo"){
+											attachments += '<a class="tag" onclick=viewPhoto("' + resp.attachments[attachment].photo.src_big + '"); title="' + resp.attachments[attachment].photo.text + '" target=_blank><img src="' + resp.attachments[attachment].photo.src + '" /></a>';
+										}
+										if(resp.attachments[attachment].type == "doc"){
+											if(resp.attachments[attachment].doc.ext == "gif"){
+												attachments += '<div class="tag" onclick=viewPhoto("' + resp.attachments[attachment].doc.url + '");><img src="' + resp.attachments[attachment].doc.thumb + '" title="' + resp.attachments[attachment].doc.title + '" /></div>';
+											}else{
+												attachments += '<a href="' + resp.attachments[attachment].doc.url + '">' + resp.attachments[attachment].doc.title + '</a><br />';
+											}
+										}
+										if(resp.attachments[attachment].type == "poll"){
+											attachments += '<table><tr><td width="40"><center><font color="gray" style="font-size: 35pt;">?</font></center></td><td>' + resp.attachments[attachment].poll.question + '</td></tr></table>';
+										}
+									}
+								}
+								$("#wallBlock" + resp.id).append('<div class="wall_block_attachments">' + attachments + '</div>');
+								$("#wallBlock" + resp.id).attr("opened", "true");
+							});
+						}
+					}
+				}
+				$(".wall").html(tmp);
+				$(".wall_block table").click(function(){
+					var id = ($(this).parent().attr("id")).split("k")[1];
+					var wallId = $(this).parent().attr("wallId");
+					if($(this).parent().attr("opened") == "true"){
+						$(this).parent().children(".wall_block_attachments").remove();
+						$(this).parent().attr("opened", "false");
+					}else{
+						callApi("wall.getById", {posts: wallId + "_" + id, access_token: hashData['access_token']}, function(postRes){
+							var resp = postRes.response[0];
+							var attachments = "";
+							if(typeof(resp.attachments) == "undefined"){
+								resp.attachments = [resp.attachment];
+							}
+							if(typeof(resp.attachment) != "undefined"){
+								for(attachment in resp.attachments){
+									if(resp.attachments[attachment].type == "link"){
+										attachments += '<br /><a href="' + resp.attachments[attachment].link.url + '" title="' + resp.attachments[attachment].link.description + '" target=_blank>' + resp.attachments[attachment].link.title + '</a>';
+									}
+									if(resp.attachments[attachment].type == "photo"){
+										// attachments += '<a href="' + resp.attachments[attachment].photo.src_big + '" title="' + resp.attachments[attachment].photo.text + '" target=_blank><img src="' + resp.attachments[attachment].photo.src + '" /></a><br />';
+										attachments += '<a class="tag" onclick=viewPhoto("' + resp.attachments[attachment].photo.src_big + '"); title="' + resp.attachments[attachment].photo.text + '" target=_blank><img src="' + resp.attachments[attachment].photo.src + '" /></a>';
+									}
+									if(resp.attachments[attachment].type == "doc"){
+										if(resp.attachments[attachment].doc.ext == "gif"){
+											attachments += '<div class="tag" onclick=viewPhoto("' + resp.attachments[attachment].doc.url + '");><img src="' + resp.attachments[attachment].doc.thumb + '" title="' + resp.attachments[attachment].doc.title + '" /></div>';
+										}else{
+											attachments += '<a href="' + resp.attachments[attachment].doc.url + '">' + resp.attachments[attachment].doc.title + '</a><br />';
+										}
+									}
+									if(resp.attachments[attachment].type == "poll"){
+										attachments += '<table><tr><td width="40"><center><font color="gray" style="font-size: 35pt;">?</font></center></td><td>' + resp.attachments[attachment].poll.question + '</td></tr></table>';
+									}
+								}
+							}
+							if(attachments != ""){
+								attachments = '<hr />' + attachments;
+							}
+							$("#wallBlock" + resp.id).append('<div class="wall_block_attachments">' + attachments + '</div>');
+							$("#wallBlock" + resp.id).attr("opened", "true");
+						});
+					}
+				});
+			}
+			function makeNewsFeed(res){
+				var data = res.response;
+				var items = data.items;
+				var posts = "";
+				for(item in items){
+					if(items[item].type == "post"){
+						var text = items[item].text;
+						if(text == ""){
+							text = '<font color="gray">' + items[item].copy_text + '</font>';
+						}
+						posts += '<div class="newsfeed_block" id="newsfeedBlock' + items[item].post_id + '">' + text;
+						var resp = items[item];
+						var attachments = "";
+						if(typeof(resp.attachments) == "undefined"){
+							resp.attachments = [resp.attachment];
+						}
+						if(typeof(resp.attachment) != "undefined"){
+							for(attachment in resp.attachments){
+								if(resp.attachments[attachment].type == "link"){
+									attachments += '<br /><a href="' + resp.attachments[attachment].link.url + '" title="' + resp.attachments[attachment].link.description + '" target=_blank>' + resp.attachments[attachment].link.title + '</a>';
+								}
+								if(resp.attachments[attachment].type == "photo"){
+									attachments += '<a class="tag" onclick=viewPhoto("' + resp.attachments[attachment].photo.src_big + '"); title="' + resp.attachments[attachment].photo.text + '" target=_blank><img src="' + resp.attachments[attachment].photo.src + '" /></a>';
+								}
+								if(resp.attachments[attachment].type == "doc"){
+									if(resp.attachments[attachment].doc.ext == "gif"){
+										attachments += '<div class="tag" onclick=viewPhoto("' + resp.attachments[attachment].doc.url + '");><img src="' + resp.attachments[attachment].doc.thumb + '" title="' + resp.attachments[attachment].doc.title + '" /></div>';
+									}else{
+										attachments += '<a href="' + resp.attachments[attachment].doc.url + '">' + resp.attachments[attachment].doc.title + '</a><br />';
+									}
+								}
+								if(resp.attachments[attachment].type == "poll"){
+									attachments += '<table><tr><td width="40"><center><font color="gray" style="font-size: 35pt;">?</font></center></td><td>' + resp.attachments[attachment].poll.question + '</td></tr></table>';
+								}
+							}
+						}
+						posts += '<br />' + attachmennts + '</div>';
+					}
+				}
+				$(".newsfeed").html(posts);
+			}
+            function showUserDialogs(){
+                getApiResponse("messages.getDialogs", {count: "10", access_token: hashData['access_token']});
+                data = resData;
+                console.log(data);
+            }
+			function setBackground(src){
+				localStorage["config-background"] = "url(" + src + ")";
+			}
+			function settingsUpdate(){
+				$(".configStr").each(function(){
+					localStorage["config-" + $(this).attr("config")] = $(this).val();
+				});
+				$("#main_content").css('background', localStorage["config-background"]);
+				loadCount = parseInt(localStorage["config-loadCount"]);
+			}
+			function updateHash(){
+				localStorage.clear();
+				window.location.href = "http://api.vk.com/oauth/authorize?client_id=3157167&redirect_uri=http://andrue.ru/vk.html&scope=2092063&display=page&response_type=token";
+			}
+			
+			var overlayTimer;
+            function viewPhoto(src){
+				var overlay = $("#overlay");
+                overlay.show("fade", 100);
+                overlay.html('<div id="overlayPhoto" style="position: absolute;"><img src="' + src + '" style="border-radius: 5px;"></div><div class="menu_component" style="position: absolute;" onclick="setBackground(' + "'" + src + "'" + ');" >Set as Background</div>');
+                overlayPhoto = $("#overlayPhoto");
+                overlayPhoto.alignCenterScreen();
+				clearInterval(overlayTimer);
+				overlayTimer = setInterval(function(){ overlayPhoto.alignCenterScreen();}, 50);
+                overlay.click(function(){
+					overlay.hide("fade", 100);
+                });
+            }
+			function addMusic(aid, oid){
+				callApi("audio.add", {aid: aid, oid: oid, access_token: hashData['access_token']}, function(res){
+					
+				});
+			}
+			function deleteMusic(aid, oid){
+				callApi("audio.delete", {aid: -parseInt(aid), oid: oid, access_token: hashData['access_token']}, function(res){
+					
+				});
+			}
+			function listenNext(u){
+				if(typeof(u) != "string"){
+					var url = this.getElementsByTagName("source")[0].src;
+				}else{
+					var url = u;
+				}
+				for(var elem = 0; elem < allMusic.length; elem++){
+					var music = allMusic[elem];
+					if(music.url == url){
+						var tmp = allMusic[elem + 1];
+						listenMusic(tmp.artistTitle, tmp.artistTitleFull, tmp.url, tmp.aid, tmp.oid);
+					}
+				}
+			}
+			function listenMusic(artistTitle, artistTitleFull, url, aid, oid){
+				var addAudio = "";
+				if(aid != ""){
+					if(parseInt(aid) > 0){
+						addAudio = "<div class=" + '"' + "menu_component" + '"' + " style=" + '"' + "margin-top: 1px; margin-right: 0px; margin-left: 0px;" + '"' + " onclick=" + '"' + "addMusic('" + aid + "', '" + oid + "'); this.innerHTML = 'Запись добавлена'; this.style = 'color: green;';" + '"' + ">+</div>";
+					}else{
+						addAudio = "<div class=" + '"' + "menu_component" + '"' + " style=" + '"' + "margin-top: 1px; margin-right: 0px; margin-left: 0px;" + '"' + " onclick=" + '"' + "deleteMusic('" + aid + "', '" + oid + "'); this.innerHTML = 'Запись удалена'; this.style = 'color: green;';" + '"' + ">-</div>";
+					}
+				}
+				// $("#audioplayer").html('<table title="' + artistTitleFull + '"><tr><td>' + artistTitle + '</td></tr><tr><td><audio id="musicPlayer" controls><source src="' + url + '" /></audio></td><td>' + addAudio + '</td></tr></table>');
+				$("#audioplayer").html('<table title="' + artistTitleFull + '"><tr><td><audio id="musicPlayer" controls><source src="' + url + '" /></audio></td><td>' + addAudio + '</td><td><div class="menu_component" onclick=listenNext("' + url + '"); style="margin-top: 1px; margin-left: 0px; margin-right: 0px;">→</div></td><td><div class="menu_component" style="margin-top: 1px;"><a href="' + url + '" target=_blank>Скачать</a></div></td></tr></table>');
+				$("#musicPlayer").get()[0].play();
+				$("#musicPlayer").get()[0].addEventListener('ended', listenNext);
+			}
+			function search(query){
+				var main = $("#main_content");
+				main.html("<table><tr><td width=250><h1>" + lang.menu.search + "</h1></td></tr></table>");
+				main.append('<input type=text id="searchStr" autofocus /><input type=button id="searchElem" class="menu_component" value="Искать" /><br /><br />');
+				main.append('<div id="search_results"></div>');
+				var search_results = $("#search_results");
+				search_results.html("Результаты:<br /><br />");
+				search_results.append('<div class="tag music_toggle">Музыка</div>');
+				search_results.append('<div class="tag groups_toggle">Группы</div>');
+				search_results.append('<div id="search_results_audio"></div>');
+				search_results.append('<div id="search_results_groups" style="display: none;"></div>');
+				$("#searchStr").val(query);
+				callApi("audio.search", {q: query, count: loadCount, access_token: hashData['access_token']}, function(res){
+					var search_results_audio = $("#search_results_audio");
+					var resp = res.response;
+					var tmp = [];
+					for(elem in resp){
+						if(elem > 0){
+							var audio = resp[elem];
+							var artistTitleFull = (audio.artist + ' - ' + audio.title).replace(new RegExp("\x27+","g"), "").replace(new RegExp("\x22+","g"), "");
+							var artistTitle = artistTitleFull.replace(new RegExp("\x27+","g"), "").replace(new RegExp("\x22+","g"), "");
+							if(artistTitle.length > 41){
+								artistTitle = artistTitle.substr(0, 38) + "...";
+							}
+							tmp.push("<div onclick=" + '"' + "listenMusic('" + artistTitle + "', '" + artistTitleFull + "', '" + audio.url + "', '" + audio.aid + "', '" + audio.owner_id + "');" + '"' + " class=" + '"audio_block"' + "><table width=100% height=100%><tr><td><a title=" + '"' + artistTitleFull + '"' + ">" + artistTitle + "</a></td></tr></table></div>");
+							allMusic.push({artistTitle: artistTitle, artistTitleFull: artistTitleFull, url: audio.url, aid: audio.aid, oid: audio.owner_id});
+						}
+					}
+					search_results_audio.html("<br />" + tmp.join(""));
+				});
+				callApi("groups.search", {q: $("#searchStr").val(), count: loadCount, access_token: hashData['access_token']}, function(res){
+					var search_results_groups = $("#search_results_groups");
+					var resp = res.response;
+					var tmp = [];
+					for(elem in resp){
+						if(elem > 0){
+							group = resp[elem];
+							tmp.push("<div class=" + '"group_block"' + "><a onclick=showGroup('" + group.gid + "');><table border=0><tr><td><img src=" + group.photo + " /></td><td>" + group.name +"</td></tr></table></a></div>");
+						}
+					}
+					search_results_groups.append('<br />' + tmp.join("") + '');
+				});
+				$("#searchElem").click(function(){
+					search($("#searchStr").val());
+				});
+				$("#searchStr").keyup(function(event){
+					if(event.keyCode == 13){
+						$("#searchElem").click();
+					}
+				});
+				$(".music_toggle").click(function(){
+					$("#search_results_audio").show();
+					$("#search_results_groups").hide();
+				});
+				$(".groups_toggle").click(function(){
+					$("#search_results_groups").show();
+					$("#search_results_audio").hide();
+				});
+			}
+			var allMusic = [];
+            $(document).ready(function(){
+                if((window.location.hash == "") & (localStorage["vk"] != "vk")){
+					window.location.href = "http://api.vk.com/oauth/authorize?client_id=3157167&redirect_uri=http://andrue.ru/vk.html&scope=2092063&display=page&response_type=token";
+				}else{
+					console.log("Hash: " + window.location.hash);
+					hashData = getUrlVars();
+					ls.init();
+					getUserName(hashData["user_id"], hashData["access_token"]);
+					myself = hashData["user_id"];
+					lang.init();
+					$("#main_content").width($(window).width() - 220);
+					$("#menu_news").click(function(){
+						/*var main = $("#main_content");
+						main.html("<h1>" + lang.menu.news + "</h1>");
+						main.append('<div class="newsfeed"></div>');
+						callApi("newsfeed.get", {filters: "post", count: 50, access_token: hashData['access_token']}, function(r){ makeNewsFeed(r);});*/
+					});
+					$("#menu_audio").click(function(){
+						var main = $("#main_content");
+						// main.html("<table><tr><td width=250><h1>" + lang.menu.audio + "</h1></td><td><div id=" + '"audioplayer"' + "></div></td></tr></table>");
+						main.html("<table><tr><td width=250><h1>" + lang.menu.audio + "</h1></td><td><div id=\"downloadAllButton\" class=\"menu_component\">Получить список всех композиций для Wget</div></td></tr></table>");
+						main.append('Фильтр: <input type=text id="audio_filter" autofocus /><br /><br />');
+						tmp = [];
+						callApi("audio.get", {uid: hashData["user_id"], access_token: hashData['access_token']}, function(res){
+							tmp.push('<div id="audio_list">');
+							allMusic = [];
+							for(obj in res.response){
+								audio = res.response[obj];
+								var artistTitleFull = (audio.artist + ' - ' + audio.title).replace(new RegExp("\x27+","g"), "").replace(new RegExp("\x22+","g"), "");
+								var artistTitle = artistTitleFull.replace(new RegExp("\x27+","g"), "").replace(new RegExp("\x22+","g"), "");
+								if(artistTitle.length > 41){
+									artistTitle = artistTitle.substr(0, 38) + "...";
+								}
+								tmp.push("<div onclick=" + '"' + "listenMusic('" + artistTitle + "', '" + artistTitleFull + "', '" + audio.url + "', '-" + audio.aid + "', '" + audio.owner_id + "');" + '"' + " class=" + '"audio_block"' + "><table width=100% height=100%><tr><td><a title=" + '"' + artistTitleFull + '"' + ">" + artistTitle + "</a></td></tr></table></div>");
+								allMusic.push({artistTitle: artistTitle, artistTitleFull: artistTitleFull, url: audio.url, aid: audio.aid, oid: audio.owner_id});
+							}
+							tmp.push('</div>');
+							main.append(tmp.join(""));
+							$(".audio").click(function(){
+								var audio = $(".audio").get();
+								for(elem in audio){
+									audio[elem].pause();
+								}
+								// this.play();
+							});
+						});
+						$("#audio_filter").keyup(function(){
+							var audio = $("#audio_list a").get();
+							for(elem in audio){
+								if(audio[elem].innerHTML.toLowerCase().indexOf($("#audio_filter").val().toLowerCase()) + 1){
+									$(audio[elem]).parent().parent().parent().parent().parent().show();
+								}else{
+									$(audio[elem]).parent().parent().parent().parent().parent().hide();
+								}
+							}
+						});
+						$("#downloadAllButton").click(function(){
+							tmpList = "";
+							for(elem in allMusic){
+								tmpList += "wget --output-document=\"" + allMusic[elem].artistTitleFull.split("\\").join("").split("\n").join("") + ".mp3\" \"" + allMusic[elem].url + "\" \n";
+							}
+							console.log(tmpList);
+							var a = document.createElement('a');
+							var blob = new Blob([tmpList], {'type':'application\/octet-stream'});
+							a.href = window.URL.createObjectURL(blob);
+							a.download = 'download.bat';
+							a.click();
+						});
+					});
+					$("#menu_friends").click(function(){
+						var main = $("#main_content");
+						main.html("<h1>" + lang.menu.friends + "</h1>");
+						main.append('Фильтр: <input type=text id="friends_filter" autofocus /><br /><br />');
+						tmp = [];
+						callApi("friends.get", {uid: hashData["user_id"], fields: "uid, first_name, last_name, photo, sex, city, country, rate, contacts, nickname", access_token: hashData['access_token']}, function(res){
+							// tmp.push("<ul>");
+							for(obj in res.response){
+								friend = res.response[obj];
+								tmp.push("<div class=" + '"friend_block"' + "><a onclick=showUserProfile('" + friend.uid + "');><table border=0><tr><td><img src=" + friend.photo + " /></td><td>" + friend.first_name + " " + friend.last_name + "</td></tr></table></a></div>");
+							}
+							// tmp.push("</ul>");
+							main.append('<div id="friends_list">' + tmp.join("") + '</div>');
+						});
+						$("#friends_filter").keyup(function(){
+							var friends = $("#friends_list a").get();
+							for(elem in friends){
+								if(friends[elem].innerHTML.toLocaleLowerCase().indexOf($("#friends_filter").val().toLocaleLowerCase()) + 1){
+									$(friends[elem]).parent().show();
+								}else{
+									$(friends[elem]).parent().hide();
+								}
+							}
+						});
+					});
+					$("#menu_groups").click(function(){
+						var main = $("#main_content");
+						main.html("<h1>" + lang.menu.groups + "</h1>");
+						main.append('Фильтр: <input type=text id="groups_filter" autofocus /><br /><br />');
+						tmp = [];
+						callApi("groups.get", {uid: hashData["user_id"], extended: "1", fields: "gid, name, screen_name, photo", access_token: hashData['access_token']}, function(res){
+							// tmp.push("<ul>");
+							for(obj in res.response){
+								if(obj > 0){
+									group = res.response[obj];
+									tmp.push("<div class=" + '"group_block"' + "><a onclick=showGroup('" + group.gid + "');><table border=0><tr><td><img src=" + group.photo + " /></td><td>" + group.name +"</td></tr></table></a></div>");
+								}
+							}
+							// tmp.push("</ul>");
+							main.append('<div id="groups_list">' + tmp.join("") + '</div>');
+						});
+						$("#groups_filter").keyup(function(){
+							var groups = $("#groups_list a").get();
+							for(elem in groups){
+								if(groups[elem].innerHTML.toLocaleLowerCase().indexOf($("#groups_filter").val().toLocaleLowerCase()) + 1){
+									$(groups[elem]).parent().show();
+								}else{
+									$(groups[elem]).parent().hide();
+								}
+							}
+						});
+					});
+					$("#menu_search").click(function(){
+						var main = $("#main_content");
+						// main.html("<table><tr><td width=250><h1>" + lang.menu.search + "</h1></td><td><div id=" + '"audioplayer"' + "></div></td></tr></table>");
+						main.html("<table><tr><td width=250><h1>" + lang.menu.search + "</h1></td></tr></table>");
+						main.append('<input type=text id="searchStr" autofocus /><input type=button id="searchElem" class="menu_component" value="Искать" /><br /><br />');
+						main.append('<div id="search_results"></div>');
+						$("#searchElem").click(function(){
+							search($("#searchStr").val());
+						});
+						$("#searchStr").keyup(function(event){
+							if(event.keyCode == 13){
+								$("#searchElem").click();
+							}
+						});
+					});
+					$("#menu_settings").click(function(){
+						var main = $("#main_content");
+						main.html("<h1>" + lang.menu.settings + "</h1>");
+						table = {};
+						table["Фон страницы"] = '<input class="configStr" config="background" value="' + localStorage["config-background"] + '" />';
+						table["Элементов загрузки"] = '<input class="configStr" config="loadCount" value="' + localStorage["config-loadCount"] + '" />';
+						table["Обновить хеш"] = '<div class="tag redColored" align="center" onclick="updateHash();">Обновить</div>';
+						table["Очистить хеш"] = '<div class="tag redColored" align="center" onclick="localStorage.clear();">Очистить</div>';
+						tmp = "";
+						tmp += '<table class="infoGrid" cellspacing="0">';
+						for(elem in table){
+							tmp += "<tr><td>" + elem + "</td><td align=right >" + table[elem] + "</td></tr>";
+						}
+						tmp += '</table><br />';
+						main.append(tmp);
+						main.append('<div class="menu_component" style="width: 70px;" onclick="settingsUpdate();">Обновить</div>');
+					});
+					$(window).resize(function(){
+						$("#main_content").width($(window).width() - 220);
+					});
+				}    
+            });
+        </script>
+		<style>
+#headbar{
+	background: #45484d; /* Old browsers */
+	background: -moz-linear-gradient(top,  #45484d 0%, #353535 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#45484d), color-stop(100%,#353535)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(top,  #45484d 0%,#353535 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(top,  #45484d 0%,#353535 100%); /* Opera 11.10+ */
+	background: -ms-linear-gradient(top,  #45484d 0%,#353535 100%); /* IE10+ */
+	background: linear-gradient(to bottom,  #45484d 0%,#353535 100%); /* W3C */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#45484d', endColorstr='#353535',GradientType=0 ); /* IE6-9 */
+}
+			
+#headbar a:link {
+	color: white;
+}
+#headbar a:visited {
+	color: white;
+}
+#headbar a:hover {
+	color: white;
+}
+#headbar a:active {
+	color: white;
+}
+#main_menu{
+	position: fixed;
+	left: 0px;
+	top: 45px;
+	width: 180px;
+	height: 100%;
+	background: black;
+	opacity: .85;
+}
+#main_menu_content{
+	margin: 5px;
+}
+.menu_component{
+	background: #a0a0a0;
+	border-radius: 5px;
+	margin: 5px;
+	text-align: center;
+	cursor: pointer;
+}
+
+.menu_component:hover{
+    background: #dbdbdb;
+}
+
+.menu_component {
+	padding: 3px 10px;
+	background: -moz-linear-gradient(
+		top,
+		#383838 0%,
+		#1a1a1a);
+	background: -webkit-gradient(
+		linear, left top, left bottom, 
+		from(#383838),
+		to(#1a1a1a));
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	border: 1px solid #1a1a1a;
+	text-shadow:
+		0px -1px 3px rgba(0, 0, 0, 0.8),
+		0px 1px 0px rgba(0, 0, 0, 0.3);
+	color: gray;
+}
+
+.menu_component:hover {
+	background: -moz-linear-gradient(
+		top,
+		#f0f0f0 0%,
+		#4f4f4f);
+	background: -webkit-gradient(
+		linear, left top, left bottom, 
+		from(#f0f0f0),
+		to(#4f4f4f));
+}
+
+.infoGrid td{
+	border-bottom: 1px solid #D4D4D4;
+}
+.infoGrid tr:nth-child(odd){
+	background: #E3E3E3;
+}
+.friend_block{
+	display: inline-block;
+	border:1px solid #D4D4D4;
+	background: #E3E3E3;
+	width: 16%;
+	min-width: 175px;
+	margin-right: 5px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+.friend_block:hover{
+	background: #F3F3F3;
+}
+.friend_block img{
+	border-radius: 5px;
+}
+
+.group_block{
+	display: inline-block;
+	border:1px solid #D4D4D4;
+	background: #E3E3E3;
+	width: 25%;
+	min-width: 300px;
+	height: 61px;
+	margin-right: 5px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+.group_block:hover{
+	background: #F3F3F3;
+}
+.group_block img{
+	border-radius: 5px;
+}
+
+.tag{
+	display: inline-block;
+	border:1px solid #D4D4D4;
+	background: #E3E3E3;
+	min-width: 120px;
+	margin-right: 3px;
+	border-radius: 3px;
+	padding: 1px 1px 1px 1px;
+	color: rgb(140, 126, 150);
+	cursor: pointer;
+}
+.tag:hover{
+	background: #F3F3F3;
+}
+
+.infoText{
+	background: #F4F4F4;
+	border-radius: 3px;
+	padding: 1px 1px 1px 1px;
+}
+
+.wall{
+	background: #F4F4F4;
+	border-radius: 3px;
+	padding: 1px 1px 1px 1px;
+}
+
+.wall_block{
+	display: inline-block;
+	border:1px solid #D4D4D4;
+	background: #E3E3E3;
+	width: 100%;
+	min-width: 300px;
+	min-height: 61px;
+	margin-right: 5px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+.wall_block:hover{
+	background: #F3F3F3;
+}
+.wall_block img{
+	border-radius: 5px;
+}
+
+.wall_block_attachments{
+	padding-left: 4px;
+	background: #F5F5F5;
+}
+
+.wall_block_comment{
+	display: inline-block;
+	border:1px solid #D4D4D4;
+	background: rgb(255, 169, 169);
+	width: 100%;
+	min-width: 300px;
+	min-height: 61px;
+	margin-right: 5px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+
+.newsfeed{
+	background: #F4F4F4;
+	border-radius: 3px;
+	padding: 1px 1px 1px 1px;
+}
+
+.newsfeed_block{
+	display: inline-block;
+	border:1px solid #D4D4D4;
+	background: #E3E3E3;
+	width: 100%;
+	min-width: 300px;
+	min-height: 61px;
+	margin-right: 5px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+.newsfeed_block:hover{
+	background: #F3F3F3;
+}
+.newsfeed_block img{
+	border-radius: 5px;
+}
+
+.audio_block{
+	display: inline-block;
+	border:1px solid #D4D4D4;
+	background: #E3E3E3;
+	width: 298px;
+	height: 61px;
+	margin-right: 5px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+.audio_block:hover{
+	background: #F3F3F3;
+}
+.redColored{
+	background: rgb(255, 182, 182);
+}
+	    </style>
+    </head>
+    <body>
+    <div id="content" style="width: 100%; height: 100%;">
+        <iframe id="backgroundClouds" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%;" frameborder="0"></iframe>
+    </div>
+	<div id="main" style="position: absolute; left: 0; top: 45px; width:100%; height: 100%; background: white; color: black;">
+		<div id="main_menu">
+			<br />
+			<div id="main_menu_content">
+				<!--<div id="menu_news" class="menu_component" style="color: gray;">
+					Почитать любимые паблики
+				</div>-->
+				<div id="menu_search" class="menu_component">
+					Поиск
+				</div>
+				<div id="menu_audio" class="menu_component">
+					Аудиозаписи
+				</div>
+				<div id="menu_friends" class="menu_component">
+					Друзьяшки
+				</div>
+				<!--<div id="menu_messages" class="menu_component" style="color: gray;">
+					Сообщалочки
+				</div>-->
+				<div id="menu_groups" class="menu_component">
+					Группки
+				</div>
+				<div id="menu_settings" class="menu_component">
+					Настройки
+				</div>
+			</div>
+		</div>
+		<div id="main_content" style="position: absolute; left: 200px; top: 25px;">
+		</div>
+	</div>
+	<div id="headbar" style="position: fixed; left: 0; top: 0; width: 100%; height: 45px; color: white;">
+		<div id="sitename" style="position: absolute; left: 7px; top: -7px;">
+			<font face="Comic Sans MS" style="font-size: 30pt;"><b>VK</b></font></div>
+		<div id="username_container" style="position: absolute; right: 5px; top: 7px;">
+			<font size="5"><div id="username">username</div></font>
+		</div>
+		<div id="audioplayer" style="position: absolute; left: 193px; top: 4px;"></div>
+	</div>
+        <div id="overlay" style="position: fixed; left: 0; top: 0; width: 100%; height: 100%; background: white; display: none;">
+            
+        </div>
+    </body>
+</html>
